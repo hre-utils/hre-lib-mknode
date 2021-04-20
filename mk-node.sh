@@ -1,5 +1,4 @@
 #!/bin/bash
-# v1.0, 2021-04-04
 #
 # changelog:
 #  (0.1)    2021-04-01 :: Created
