@@ -9,21 +9,20 @@
 #  (0.3)    2021-04-15 :: Renaming public methods to avoid collisions. Changing
 #                         from 'Class' -> '.node' for accuracy
 #           2021-04-16 :: Improved sourcing functionality
+#           2021-04-19 :: Removed all calls to `sed`, replacing with substring
+#                         removal. Much faster to not call so many subprocesses.
 
 #──────────────────────────────────( prereqs )──────────────────────────────────
 # Version requirement: >4
-_bash_version="$( sed -E 's,^([0-9]+)\..*,\1,' <<< "${BASH_VERSION}" )"
-[[ $_bash_version -lt 4 ]] && {
+[[ ${BASH_VERSION%%.*} -lt 4 ]] && {
    echo -e "\n[${BASH_SOURCE[0]}] ERROR: Requires Bash version >= 4\n"
    exit 1
 }
 
 # Verification if we've sourced this in other scripts. Name is standardized.
-# e.g., filename 'mk-node.sh' --> '__source_mk_node=true'
+# e.g., filename 'mk-conf.sh' --> '__source_mk_conf=true'
 __fname__="$( basename "${BASH_SOURCE[0]%.*}" )"
-declare $(
-      sed -E -e 's,(.*),__source_\1__,' -e 's,-,_,g' <<< "${__fname__}"
-)=true
+declare "__source_${__fname__//[^[:alnum:]]/_}__"=true
 
 
 #═════════════════════════════════╡ FUNCTIONS ╞═════════════════════════════════
@@ -57,7 +56,7 @@ function .node {
    if [[ -z "$parents" ]] ; then
       fqfn=$short_name                             # If no parent, gets a top-
    else                                            # level name, for easy call
-      parents="$( sed 's/[.,]/ /g' <<< "$parents" )"
+      parents="${parents//[.,]/ }"
 
       parent_fqfn=$( $parents __fqname__ )         # Else 'private' name, nested
       fqfn="${parent_fqfn}__${short_name}"         # under the parent's name
