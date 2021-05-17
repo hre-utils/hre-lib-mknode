@@ -11,6 +11,9 @@
 #           2021-04-16 :: Improved sourcing functionality
 #           2021-04-19 :: Removed all calls to `sed`, replacing with substring
 #                         removal. Much faster to not call so many subprocesses.
+#  (1.0)    2021-05-16 :: Switched 'methods' to use a more traditional '--'
+#                         syntax. Added '--rm' method to nuke the function, and
+#                         all children, including any set variables.
 
 #──────────────────────────────────( prereqs )──────────────────────────────────
 # Version requirement: >4
@@ -58,10 +61,10 @@ function .node {
    else                                            # level name, for easy call
       parents="${parents//[.,]/ }"
 
-      parent_fqfn=$( $parents __fqname__ )         # Else 'private' name, nested
+      parent_fqfn=$( $parents --fqname )           # Else 'private' name, nested
       fqfn="${parent_fqfn}__${short_name}"         # under the parent's name
 
-      $parent_fqfn __next__ $short_name $fqfn
+      $parent_fqfn --next $short_name $fqfn
    fi
 
    $__verbose__ && {
@@ -77,35 +80,41 @@ function .node {
    function $fqfn {
          case \"\$1\" in
             #────────────────────────( set )────────────────────────────────────
-            __set__)
+            --set)
                   shift
                   ${fqfn}__keys[\$1]=\"\${@:2}\"
                   return 0
                   ;;
-            __aset__)
+
+            --aset)
                   shift
                   ${fqfn}__keys[\$1]+=\"\${${fqfn}__keys[\$1]:+\\n}\${@:2}\"
                   return 0
                   ;;
-            __next__)
+
+            --next)
                   shift
                   ${fqfn}__next[\$1]=\"\$2\"
                   return 0
                   ;;
+
             #───────────────────────( query )───────────────────────────────────
-            __name__)
+            --name)
                   echo \"$short_name\"
                   return 0
                   ;;
-            __fqname__)
+
+            --fqname)
                   echo \"$fqfn\"
                   return 0
                   ;;
-            __children__)
+
+            --children)
                   echo \"\${!${fqfn}__next[@]}\"
                   return 0
                   ;;
-            __find__)
+
+            --find)
                   shift
                   if [[ -z \$@ ]] ; then
                      echo \"${short_name}\" 
@@ -116,26 +125,49 @@ function .node {
                   shift
 
                   if [[ -n \"\$next\" ]] ; then
-                     \$next __find__ \$@
+                     \$next --find \$@
                   else
                      echo \"${short_name}\" 
                      return 0
                   fi
                   ;;
+
             #────────────────────────( do )─────────────────────────────────────
-            __activate__)
+            --activate)
                   for _key in \"\${!${fqfn}__keys[@]}\" ; do
                      local _val=\"\${${fqfn}__keys[\"\$_key\"]}\"
                      declare -g \$_key=\"\$_val\"
                   done
                   return 0
                   ;;
-            __deactivate__)
+
+            --deactivate)
                   for _key in \"\${!${fqfn}__keys[@]}\" ; do
                      unset _key
                   done
                   return 0
                   ;;
+
+            --rm)
+                  # Propagate down to children:
+                  for _child in \"\${${fqfn}__next[@]}\" ; do
+                     echo \"Telling child \$_child to rm\"
+                     \$_child --rm
+                  done
+                  
+                  # Deactivate:
+                  for _key in \"\${!${fqfn}__keys[@]}\" ; do
+                     echo \"Unsetting key: \$_key\"
+                     unset _key
+                  done
+                  
+                  # Remove function:
+                  echo \"Removing self\"
+                  unset -f ${fqfn}
+
+                  return 0
+                  ;;
+                  
          esac
 
          if [[ \$# -eq 1 ]] ; then
