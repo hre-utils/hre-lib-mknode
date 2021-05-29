@@ -1,5 +1,5 @@
 #!/bin/bash
-source mk-node.sh
+source hre-lib-mknode.sh
 
 function test_standalone {
    for fn in $(seq 1 $1) ; do
